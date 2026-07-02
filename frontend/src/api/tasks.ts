@@ -60,5 +60,6 @@ export async function deleteTask(id: number): Promise<void> {
 }
 
 export function getAudioUrl(taskId: number): string {
-  return `/api/tasks/${taskId}/audio`
+  const token = localStorage.getItem('token')
+  return `/api/tasks/${taskId}/audio?token=${token || ''}`
 }

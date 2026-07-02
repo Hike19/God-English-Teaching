@@ -73,11 +73,16 @@ def delete_task(
 @router.get("/{task_id}/audio")
 def get_audio(
     task_id: int,
-    current_user: User = Depends(get_current_user),
+    token: str | None = None,
     db: Session = Depends(get_db),
 ):
+    # Auth via query-param token (for <audio> tag which can't send headers)
+    from ..auth import get_user_from_token
+    user = get_user_from_token(token, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid token")
     task = db.query(Task).filter(
-        Task.id == task_id, Task.user_id == current_user.id
+        Task.id == task_id, Task.user_id == user.id
     ).first()
     if not task or not task.audio_path:
         raise HTTPException(status_code=404, detail="Audio not found")

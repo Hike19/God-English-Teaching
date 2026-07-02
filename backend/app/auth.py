@@ -9,7 +9,21 @@ from .config import settings
 from .database import get_db
 from .models import User
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
+
+
+def get_user_from_token(token_str: str | None, db: Session) -> User | None:
+    """Decode JWT token string and return User, or None if invalid."""
+    if not token_str:
+        return None
+    try:
+        payload = jwt.decode(token_str, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+        sub = payload.get("sub")
+        if sub is None:
+            return None
+        return db.query(User).filter(User.id == int(sub)).first()
+    except JWTError:
+        return None
 
 
 def hash_password(password: str) -> str:
