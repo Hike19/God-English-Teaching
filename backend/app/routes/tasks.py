@@ -1,5 +1,6 @@
 import os
 import uuid
+from threading import Thread
 import aiofiles
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.responses import FileResponse
@@ -121,8 +122,13 @@ async def upload_file(
     db.commit()
     db.refresh(task)
 
-    from ..tasks.process import process_task
-    process_task.delay(task.id)
+    def _dispatch():
+        try:
+            from ..tasks.celery_app import celery_app
+            celery_app.send_task("app.tasks.process.process_task", args=[task.id])
+        except Exception:
+            pass
+    Thread(target=_dispatch, daemon=True).start()
 
     return TaskCreateOut(id=task.id, status=task.status)
 
@@ -144,7 +150,12 @@ def submit_url(
     db.commit()
     db.refresh(task)
 
-    from ..tasks.process import process_task
-    process_task.delay(task.id)
+    def _dispatch():
+        try:
+            from ..tasks.celery_app import celery_app
+            celery_app.send_task("app.tasks.process.process_task", args=[task.id])
+        except Exception:
+            pass
+    Thread(target=_dispatch, daemon=True).start()
 
     return TaskCreateOut(id=task.id, status=task.status)
