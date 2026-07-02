@@ -26,12 +26,18 @@ export interface TaskCreateResponse {
   status: string
 }
 
-export async function uploadFile(file: File): Promise<TaskCreateResponse> {
+export async function uploadFile(
+  file: File,
+  onProgress?: (pct: number) => void,
+): Promise<TaskCreateResponse> {
   const formData = new FormData()
   formData.append('file', file)
   const { data } = await apiClient.post<TaskCreateResponse>('/tasks/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 120000,
+    timeout: 300000,
+    onUploadProgress: (e) => {
+      if (e.total && onProgress) onProgress(Math.round((e.loaded / e.total) * 100))
+    },
   })
   return data
 }

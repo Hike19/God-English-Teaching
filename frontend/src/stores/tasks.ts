@@ -26,8 +26,8 @@ export const useTasksStore = defineStore('tasks', () => {
     }
   }
 
-  async function createFromFile(file: File): Promise<number> {
-    const result = await tasksApi.uploadFile(file)
+  async function createFromFile(file: File, onProgress?: (pct: number) => void): Promise<number> {
+    const result = await tasksApi.uploadFile(file, onProgress)
     await pollUntilDone(result.id)
     return result.id
   }

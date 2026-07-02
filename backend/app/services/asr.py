@@ -33,38 +33,31 @@ def _format_zh(text: str) -> str:
     return text
 
 
-def _translate_text(text: str) -> str:
-    """Translate English to Chinese. Tries multiple backends, falls back to EN-only."""
-    return _try_translate(text)
+def _translate_batch(texts: list[str]) -> list[str]:
+    """Batch translate English texts to Chinese. Returns bilingual strings."""
+    if not texts:
+        return texts
 
-
-def _try_translate(text: str) -> str:
-    """Try translation backends in order, return bilingual or EN-only text."""
-    # Try 1: deep-translator Google (may work with system proxy)
-    try:
-        from deep_translator import GoogleTranslator
-        zh = GoogleTranslator(source="en", target="zh-CN").translate(text)
-        return f"{text}\n{_format_zh(zh)}"
-    except Exception:
-        pass
-
-    # Try 2: direct MyMemory API with Chinese
+    # Try MyMemory API with batch (join with separator)
     try:
         import requests
+        separator = " ||| "
+        joined = separator.join(texts)
         r = requests.get(
             "https://api.mymemory.translated.net/get",
-            params={"q": text, "langpair": "en|zh-CN"},
-            timeout=5,
+            params={"q": joined, "langpair": "en|zh-CN"},
+            timeout=10,
         )
         if r.ok:
-            zh = r.json()["responseData"]["translatedText"]
-            if zh and zh != text:
-                return f"{text}\n{_format_zh(zh)}"
+            zh_joined = r.json()["responseData"]["translatedText"]
+            zh_parts = zh_joined.split(separator)
+            if len(zh_parts) == len(texts):
+                return [f"{en}\n{_format_zh(zh)}" for en, zh in zip(texts, zh_parts)]
     except Exception:
         pass
 
     # Fallback: English only
-    return text
+    return texts
 
 
 def _resample(audio: np.ndarray, orig_sr: int, target_sr: int) -> np.ndarray:
@@ -94,14 +87,16 @@ def transcribe(audio_path: str) -> list[dict]:
 
     try:
         segments = model.transcribe(wav_path, language="en")
+        en_texts = [seg.text.strip() for seg in segments]
+        print(f"[ASR] Transcribed {len(en_texts)} segments, translating...")
+        bilingual = _translate_batch(en_texts)
         results = []
         for i, segment in enumerate(segments):
-            en_text = segment.text.strip()
             results.append({
                 "index": i,
                 "start_time": round(segment.t0 * 0.01, 2),
                 "end_time": round(segment.t1 * 0.01, 2),
-                "text": _translate_text(en_text),
+                "text": bilingual[i],
             })
         return results
     finally:
