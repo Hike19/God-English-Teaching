@@ -69,6 +69,7 @@ watch(() => player.currentTime, () => {
   padding: 0.5rem 1rem; margin: 0.25rem 0; border-radius: 6px;
   font-size: 1.1rem; line-height: 1.6; cursor: pointer;
   transition: opacity 0.3s, background 0.3s;
+  white-space: pre-line;
 }
 .subtitle-line.played { opacity: 0.3; color: #666; }
 .subtitle-line.upcoming { opacity: 0.5; color: #999; }

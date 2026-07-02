@@ -1,4 +1,5 @@
 import os
+import re
 import tempfile
 import numpy as np
 import soundfile as sf
@@ -18,6 +19,54 @@ def get_model() -> Model:
     return _model
 
 
+def _format_zh(text: str) -> str:
+    """Format Chinese text: short phrases get spaces between chars, sentences stay continuous."""
+    chinese_chars = re.findall(r'[一-鿿]', text)
+    if len(chinese_chars) <= 4:
+        result = []
+        for ch in text:
+            if re.match(r'[一-鿿]', ch):
+                result.append(ch + ' ')
+            else:
+                result.append(ch)
+        return ''.join(result).strip()
+    return text
+
+
+def _translate_text(text: str) -> str:
+    """Translate English to Chinese. Tries multiple backends, falls back to EN-only."""
+    return _try_translate(text)
+
+
+def _try_translate(text: str) -> str:
+    """Try translation backends in order, return bilingual or EN-only text."""
+    # Try 1: deep-translator Google (may work with system proxy)
+    try:
+        from deep_translator import GoogleTranslator
+        zh = GoogleTranslator(source="en", target="zh-CN").translate(text)
+        return f"{text}\n{_format_zh(zh)}"
+    except Exception:
+        pass
+
+    # Try 2: direct MyMemory API with Chinese
+    try:
+        import requests
+        r = requests.get(
+            "https://api.mymemory.translated.net/get",
+            params={"q": text, "langpair": "en|zh-CN"},
+            timeout=5,
+        )
+        if r.ok:
+            zh = r.json()["responseData"]["translatedText"]
+            if zh and zh != text:
+                return f"{text}\n{_format_zh(zh)}"
+    except Exception:
+        pass
+
+    # Fallback: English only
+    return text
+
+
 def _resample(audio: np.ndarray, orig_sr: int, target_sr: int) -> np.ndarray:
     """Simple resampling using linear interpolation."""
     if orig_sr == target_sr:
@@ -30,18 +79,15 @@ def _resample(audio: np.ndarray, orig_sr: int, target_sr: int) -> np.ndarray:
 
 
 def transcribe(audio_path: str) -> list[dict]:
-    """Run Whisper ASR on audio file. Returns list of subtitle segments."""
+    """Run Whisper ASR + EN→ZH translation. Returns bilingual subtitle segments."""
     model = get_model()
 
-    # Read audio with soundfile
     audio, sample_rate = sf.read(audio_path, dtype="float32")
     if audio.ndim > 1:
         audio = audio.mean(axis=1)
 
-    # Resample to 16000 Hz
     audio = _resample(audio, sample_rate, TARGET_SR)
 
-    # Save as temp WAV at 16kHz
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
         wav_path = f.name
     sf.write(wav_path, audio, TARGET_SR)
@@ -50,11 +96,12 @@ def transcribe(audio_path: str) -> list[dict]:
         segments = model.transcribe(wav_path, language="en")
         results = []
         for i, segment in enumerate(segments):
+            en_text = segment.text.strip()
             results.append({
                 "index": i,
                 "start_time": round(segment.t0 * 0.01, 2),
                 "end_time": round(segment.t1 * 0.01, 2),
-                "text": segment.text.strip(),
+                "text": _translate_text(en_text),
             })
         return results
     finally:
