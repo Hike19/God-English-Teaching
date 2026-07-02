@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .database import engine, Base
-from .routes import auth
+from .routes import auth, tasks, feedback
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -28,3 +28,5 @@ def health():
 
 
 app.include_router(auth.router)
+app.include_router(tasks.router)
+app.include_router(feedback.router)
