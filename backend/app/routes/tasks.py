@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
 from ..database import get_db
-from ..models import User, Task
+from ..models import User, Task, Subtitle
 from ..schemas import TaskOut, TaskCreateOut
 from ..auth import get_current_user
 from ..config import settings
@@ -122,13 +122,43 @@ async def upload_file(
     db.commit()
     db.refresh(task)
 
-    def _dispatch():
+    task_id = task.id
+
+    def _process():
+        from ..database import SessionLocal
+        db2 = SessionLocal()
         try:
-            from ..tasks.celery_app import celery_app
-            celery_app.send_task("app.tasks.process.process_task", args=[task.id])
-        except Exception:
-            pass
-    Thread(target=_dispatch, daemon=True).start()
+            from ..services.media import extract_audio
+            from ..services.asr import transcribe
+
+            audio_path = extract_audio(save_path)
+            task_dir = os.path.basename(os.path.dirname(audio_path))
+            t = db2.query(Task).filter(Task.id == task_id).first()
+            if t:
+                t.audio_path = f"{task_dir}/audio.mp3"
+                db2.commit()
+
+            segments = transcribe(audio_path)
+            t = db2.query(Task).filter(Task.id == task_id).first()
+            if t:
+                for seg in segments:
+                    sub = Subtitle(
+                        task_id=t.id, index=seg["index"],
+                        start_time=seg["start_time"], end_time=seg["end_time"],
+                        text=seg["text"],
+                    )
+                    db2.add(sub)
+                t.status = "done"
+                db2.commit()
+        except Exception as e:
+            t = db2.query(Task).filter(Task.id == task_id).first()
+            if t:
+                t.status = "failed"
+                t.error_msg = str(e)[:500]
+                db2.commit()
+        finally:
+            db2.close()
+    Thread(target=_process, daemon=True).start()
 
     return TaskCreateOut(id=task.id, status=task.status)
 
@@ -150,12 +180,43 @@ def submit_url(
     db.commit()
     db.refresh(task)
 
-    def _dispatch():
+    task_id = task.id
+
+    def _process():
+        from ..database import SessionLocal
+        db2 = SessionLocal()
         try:
-            from ..tasks.celery_app import celery_app
-            celery_app.send_task("app.tasks.process.process_task", args=[task.id])
-        except Exception:
-            pass
-    Thread(target=_dispatch, daemon=True).start()
+            from ..services.media import download_media, extract_audio
+            from ..services.asr import transcribe
+
+            video_path = download_media(url)
+            audio_path = extract_audio(video_path)
+            task_dir = os.path.basename(os.path.dirname(audio_path))
+            t = db2.query(Task).filter(Task.id == task_id).first()
+            if t:
+                t.audio_path = f"{task_dir}/audio.mp3"
+                db2.commit()
+
+            segments = transcribe(audio_path)
+            t = db2.query(Task).filter(Task.id == task_id).first()
+            if t:
+                for seg in segments:
+                    sub = Subtitle(
+                        task_id=t.id, index=seg["index"],
+                        start_time=seg["start_time"], end_time=seg["end_time"],
+                        text=seg["text"],
+                    )
+                    db2.add(sub)
+                t.status = "done"
+                db2.commit()
+        except Exception as e:
+            t = db2.query(Task).filter(Task.id == task_id).first()
+            if t:
+                t.status = "failed"
+                t.error_msg = str(e)[:500]
+                db2.commit()
+        finally:
+            db2.close()
+    Thread(target=_process, daemon=True).start()
 
     return TaskCreateOut(id=task.id, status=task.status)

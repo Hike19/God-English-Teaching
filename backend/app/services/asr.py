@@ -1,22 +1,20 @@
 from faster_whisper import WhisperModel
 
-MODEL_SIZE = "large-v3"
+MODEL_SIZE = "tiny.en"
 _model: WhisperModel | None = None
 
 
 def get_model() -> WhisperModel:
     global _model
     if _model is None:
+        print(f"[ASR] Loading Whisper model '{MODEL_SIZE}'...")
         _model = WhisperModel(MODEL_SIZE, device="cpu", compute_type="int8")
+        print("[ASR] Model loaded.")
     return _model
 
 
 def transcribe(audio_path: str) -> list[dict]:
-    """Run Whisper ASR on audio file. Returns list of subtitle segments.
-
-    Returns:
-        list[dict]: [{"index": 0, "start_time": 0.0, "end_time": 2.5, "text": "Hello"}, ...]
-    """
+    """Run Whisper ASR on audio file. Returns list of subtitle segments."""
     model = get_model()
     segments, _ = model.transcribe(audio_path, beam_size=5, language="en")
 
