@@ -86,7 +86,12 @@ def get_audio(
     if not os.path.exists(full_path):
         raise HTTPException(status_code=404, detail="Audio file missing on disk")
 
-    return FileResponse(full_path, media_type="audio/mpeg")
+    ext = os.path.splitext(full_path)[1].lower()
+    mime_map = {
+        ".mp3": "audio/mpeg", ".wav": "audio/wav", ".m4a": "audio/mp4",
+        ".flac": "audio/flac", ".webm": "audio/webm", ".ogg": "audio/ogg",
+    }
+    return FileResponse(full_path, media_type=mime_map.get(ext, "audio/mpeg"))
 
 
 @router.post("/upload", response_model=TaskCreateOut, status_code=status.HTTP_201_CREATED)
@@ -133,9 +138,10 @@ async def upload_file(
 
             audio_path = extract_audio(save_path)
             task_dir = os.path.basename(os.path.dirname(audio_path))
+            audio_name = os.path.basename(audio_path)
             t = db2.query(Task).filter(Task.id == task_id).first()
             if t:
-                t.audio_path = f"{task_dir}/audio.mp3"
+                t.audio_path = f"{task_dir}/{audio_name}"
                 db2.commit()
 
             segments = transcribe(audio_path)
@@ -192,9 +198,10 @@ def submit_url(
             video_path = download_media(url)
             audio_path = extract_audio(video_path)
             task_dir = os.path.basename(os.path.dirname(audio_path))
+            audio_name = os.path.basename(audio_path)
             t = db2.query(Task).filter(Task.id == task_id).first()
             if t:
-                t.audio_path = f"{task_dir}/audio.mp3"
+                t.audio_path = f"{task_dir}/{audio_name}"
                 db2.commit()
 
             segments = transcribe(audio_path)

@@ -1,8 +1,15 @@
 import os
+import shutil
 import uuid
 import subprocess
 import yt_dlp
 from ..config import settings
+
+AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".flac", ".webm", ".ogg"}
+
+
+def is_audio_file(path: str) -> bool:
+    return os.path.splitext(path)[1].lower() in AUDIO_EXTENSIONS
 
 
 def download_media(url: str) -> str:
@@ -31,8 +38,20 @@ def download_media(url: str) -> str:
 
 
 def extract_audio(input_path: str) -> str:
-    """Extract audio from video/audio file to mp3 using ffmpeg. Returns the mp3 path."""
+    """Extract audio to mp3. For audio files, copies as-is. For video, uses ffmpeg.
+
+    Returns the path to the audio file usable for both playback and ASR.
+    """
     output_dir = os.path.dirname(input_path)
+
+    if is_audio_file(input_path):
+        # Audio file — just copy to a predictable name
+        ext = os.path.splitext(input_path)[1].lower()
+        output_path = os.path.join(output_dir, f"audio{ext}")
+        shutil.copy2(input_path, output_path)
+        return output_path
+
+    # Video file — extract audio with ffmpeg
     output_path = os.path.join(output_dir, "audio.mp3")
 
     cmd = [
