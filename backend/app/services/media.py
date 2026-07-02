@@ -32,7 +32,8 @@ def download_media(url: str) -> str:
 def _download_with_youget(url: str, task_dir: str) -> str:
     """Download using you-get (better for B站, 抖音, etc.)"""
     cmd = [
-        "you-get", "--no-caption", "--format=worstaudio",
+        "python", "-m", "you_get",
+        "--no-caption",
         "-o", task_dir, "-O", "downloaded",
         url,
     ]
