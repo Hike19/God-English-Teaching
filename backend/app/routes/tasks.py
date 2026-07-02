@@ -121,6 +121,9 @@ async def upload_file(
     db.commit()
     db.refresh(task)
 
+    from ..tasks.process import process_task
+    process_task.delay(task.id)
+
     return TaskCreateOut(id=task.id, status=task.status)
 
 
@@ -140,5 +143,8 @@ def submit_url(
     db.add(task)
     db.commit()
     db.refresh(task)
+
+    from ..tasks.process import process_task
+    process_task.delay(task.id)
 
     return TaskCreateOut(id=task.id, status=task.status)
