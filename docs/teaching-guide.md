@@ -4,18 +4,20 @@
 
 基于 Whisper ASR 的英语口语练习 Web 应用。导入本地音视频或粘贴国内平台链接，自动生成英汉双语同步字幕，跟随音频练习口语。
 
-**技术栈：** Vue 3 + FastAPI + SQLite + whisper.cpp + you-get + MyMemory 翻译
+**技术栈：** Vue 3 + FastAPI + SQLite + whisper.cpp + you-get + Helsinki-NLP/opus-mt-en-zh 本地翻译
 
 ---
 
 ## 二、使用要点
 
-### 2.1 启动方式（2 个终端）
+### 2.1 启动方式（2 个终端，无需 Redis）
 
 **终端 1 — 后端：**
 ```bash
 cd "D:\God English\backend"
-python -m uvicorn app.main:app --reload --port 8000
+# 国内用户必须设置，否则翻译模型无法下载
+$env:HF_ENDPOINT="https://hf-mirror.com"
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **终端 2 — 前端：**
@@ -24,7 +26,9 @@ cd "D:\God English\frontend"
 npm run dev
 ```
 
-浏览器打开 `http://localhost:5173`
+本机浏览器打开 `http://localhost:5173`
+
+**局域网共享：** 其他设备访问 `http://<本机IP>:5173`（需先开放 Windows 防火墙 5173 端口）
 
 ### 2.2 功能操作
 
@@ -33,6 +37,7 @@ npm run dev
 | 导入素材库 | 点击顶部 📁 按钮 | 支持 mp3/mp4/wav/webm/m4a/flac，上传有进度条 |
 | 粘贴链接 | 顶部输入框粘贴 URL | 支持 B站/抖音/小红书/腾讯视频/爱奇艺/网易云/QQ音乐，自动提取 URL |
 | 字幕播放 | 中间区域 | 英汉双语显示，当前句高亮，已播变暗 30%，未播变暗 50% |
+| 自由滚动 | 手动滚动字幕列表 | 查看上下文，停止滚动 3 秒后自动回到当前播放句 |
 | 点击字幕 | 点击任意字幕行 | 跳转到对应时间点 |
 | 播放控制 | 底部控制栏 | 暂停/播放、拖拽进度条、倍速(0.5x-2x) |
 | 登录 | 底部"登录"按钮 | 注册/登录，查看历史记录 |
@@ -65,7 +70,7 @@ FastAPI (:8000)
     → 音频文件: 直接使用; 视频文件: ffmpeg 提取音频
     → soundfile 读取音频 → 重采样 16kHz → 写 WAV
     → pywhispercpp (tiny.en, 75MB) 转写
-    → MyMemory API 批量翻译 EN→ZH
+    → Helsinki-NLP/opus-mt-en-zh 本地翻译 EN→ZH (~300MB)
     → 字幕存入 SQLite
     → 前端轮询完成 → 播放器加载
 ```
