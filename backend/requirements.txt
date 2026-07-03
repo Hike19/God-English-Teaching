@@ -11,3 +11,6 @@ deep-translator>=1.11.0
 yt-dlp>=2024.0.0
 ffmpeg-python>=0.2.0
 aiofiles>=23.0.0
+transformers>=4.40.0
+torch>=2.0.0
+sentencepiece>=0.2.0
