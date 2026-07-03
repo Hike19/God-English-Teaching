@@ -4,12 +4,13 @@ import tempfile
 import numpy as np
 import soundfile as sf
 from pywhispercpp.model import Model
-from transformers import pipeline
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 MODEL_SIZE = "tiny.en"
 TARGET_SR = 16000
 _model: Model | None = None
-_translator = None
+_translator_model = None
+_translator_tokenizer = None
 
 
 def get_model() -> Model:
@@ -22,13 +23,24 @@ def get_model() -> Model:
 
 
 def get_translator():
-    """Lazy-load OPUS-MT en→zh translation model."""
-    global _translator
-    if _translator is None:
+    """Lazy-load OPUS-MT en→zh translation model.
+    Set HF_ENDPOINT=https://hf-mirror.com if huggingface.co is unreachable."""
+    global _translator_model, _translator_tokenizer
+    if _translator_model is None:
         print("[TR] Loading translation model Helsinki-NLP/opus-mt-en-zh...")
-        _translator = pipeline("translation", model="Helsinki-NLP/opus-mt-en-zh")
+        try:
+            _translator_model = AutoModelForSeq2SeqLM.from_pretrained("Helsinki-NLP/opus-mt-en-zh")
+            _translator_tokenizer = AutoTokenizer.from_pretrained("Helsinki-NLP/opus-mt-en-zh")
+        except Exception:
+            print("[TR] Network unavailable, trying local cache...")
+            _translator_model = AutoModelForSeq2SeqLM.from_pretrained(
+                "Helsinki-NLP/opus-mt-en-zh", local_files_only=True
+            )
+            _translator_tokenizer = AutoTokenizer.from_pretrained(
+                "Helsinki-NLP/opus-mt-en-zh", local_files_only=True
+            )
         print("[TR] Translation model loaded.")
-    return _translator
+    return _translator_model, _translator_tokenizer
 
 
 def _format_zh(text: str) -> str:
@@ -52,14 +64,15 @@ def _translate_batch(texts: list[str]) -> list[str]:
         return texts
 
     try:
-        translator = get_translator()
+        model, tokenizer = get_translator()
         results = []
         for text in texts:
             if not text.strip():
                 results.append(text)
                 continue
-            zh_result = translator(text, max_length=512)
-            zh_text = zh_result[0]["translation_text"]
+            inputs = tokenizer(text, return_tensors="pt")
+            outputs = model.generate(**inputs, max_length=512)
+            zh_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
             results.append(f"{text}\n{_format_zh(zh_text)}")
         return results
     except Exception as e:
