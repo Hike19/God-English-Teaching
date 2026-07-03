@@ -120,3 +120,44 @@
 ============================================================
   更新日期：2026-07-03
 ============================================================
+
+
+
+ 第 1 步：开防火墙（只需做一次）
+
+  按 Win 键，输入 powershell，右键 → 以管理员身份运行，粘贴以下命令：
+
+  New-NetFirewallRule -DisplayName "God English 5173" -Direction Inbound -Protocol TCP -LocalPort 5173 -Action Allow
+  New-NetFirewallRule -DisplayName "God English 8000" -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow
+
+  显示 Rule created successfully 就成功了。
+
+  ---
+  第 2 步：后端
+
+  新开一个 PowerShell，粘贴：
+
+  cd "D:\God English\backend"
+  $env:HF_ENDPOINT="https://hf-mirror.com"
+  python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+  出现 Uvicorn running on http://0.0.0.0:8000 就是成功了。
+
+  ---
+  第 3 步：前端
+
+  新开一个 PowerShell，粘贴：
+
+  cd "D:\God English\frontend"
+  npm run dev
+
+  出现 Network: http://192.168.x.x:5173/ 字样，记下这个 IP。
+
+  ---
+  第 4 步：其他设备访问
+
+  用手机或平板打开刚才记下的地址，比如：
+
+  http://192.168.1.105:5173
+
+  就可以用了。
