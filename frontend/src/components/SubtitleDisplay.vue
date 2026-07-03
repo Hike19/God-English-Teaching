@@ -11,7 +11,8 @@
       :class="{ active: isActive(sub), played: isPlayed(sub), upcoming: isUpcoming(sub) }"
       @click="seekTo(sub.start_time)"
     >
-      {{ sub.text }}
+      <span class="en-line">{{ splitLines(sub.text).en }}</span>
+      <span v-if="splitLines(sub.text).zh" class="zh-line">{{ splitLines(sub.text).zh }}</span>
     </div>
   </div>
 </template>
@@ -46,6 +47,12 @@ function seekTo(time: number) {
   player.seek(time)
 }
 
+function splitLines(text: string): { en: string; zh: string } {
+  const idx = text.indexOf('\n')
+  if (idx === -1) return { en: text, zh: '' }
+  return { en: text.slice(0, idx), zh: text.slice(idx + 1) }
+}
+
 watch(() => player.currentTime, () => {
   for (const sub of props.subtitles) {
     if (isActive(sub)) {
@@ -77,4 +84,7 @@ watch(() => player.currentTime, () => {
   opacity: 1; color: #fff; background: rgba(79, 195, 247, 0.15);
   font-weight: 600; font-size: 1.3rem;
 }
+.en-line { display: block; }
+.zh-line { display: block; font-size: 0.85em; opacity: 0.75; }
+.subtitle-line.active .zh-line { opacity: 0.85; }
 </style>
