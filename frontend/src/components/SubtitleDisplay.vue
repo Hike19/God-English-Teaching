@@ -1,5 +1,5 @@
 <template>
-  <div class="subtitle-display" ref="containerRef">
+  <div class="subtitle-display" ref="containerRef" @scroll="onUserScroll">
     <div v-if="!subtitles.length" class="placeholder">
       上传文件或粘贴链接以生成字幕
     </div>
@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onBeforeUnmount } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import type { Subtitle } from '@/api/tasks'
 
@@ -26,6 +26,9 @@ const props = defineProps<{ subtitles: Subtitle[] }>()
 const player = usePlayerStore()
 const containerRef = ref<HTMLElement>()
 const subRefs = new Map<number, HTMLElement>()
+
+const userScrolled = ref(false)
+let returnTimer: ReturnType<typeof setTimeout> | null = null
 
 function setSubRef(id: number, el: HTMLElement | null) {
   if (el) subRefs.set(id, el)
@@ -53,7 +56,7 @@ function splitLines(text: string): { en: string; zh: string } {
   return { en: text.slice(0, idx), zh: text.slice(idx + 1) }
 }
 
-watch(() => player.currentTime, () => {
+function scrollToActive() {
   for (const sub of props.subtitles) {
     if (isActive(sub)) {
       const el = subRefs.get(sub.id)
@@ -63,6 +66,24 @@ watch(() => player.currentTime, () => {
       break
     }
   }
+}
+
+function onUserScroll() {
+  userScrolled.value = true
+  if (returnTimer) clearTimeout(returnTimer)
+  returnTimer = setTimeout(() => {
+    userScrolled.value = false
+    scrollToActive()
+  }, 3000)
+}
+
+watch(() => player.currentTime, () => {
+  if (userScrolled.value) return
+  scrollToActive()
+})
+
+onBeforeUnmount(() => {
+  if (returnTimer) clearTimeout(returnTimer)
 })
 </script>
 

@@ -1,13 +1,12 @@
 //打开PowerShell
 # 国内用户首次运行需设置 HuggingFace 镜像（模型下载）
-  $env:HF_ENDPOINT="https://hf-mirror.com"
-
-# 后端
-  cd "D:\God English\backend"
-  python -m uvicorn app.main:app --reload --port 8000
-
-  # 前端
-  cd "D:\God English\frontend"
-  npm run dev
 //Edge浏览器要打开并登录B站才可复制粘贴连接
 //首次处理音频时会自动下载翻译模型（~300MB），之后无需联网
+ # 终端 1: 后端
+  cd "D:\God English\backend"
+  $env:HF_ENDPOINT="https://hf-mirror.com"
+  python -m uvicorn app.main:app --reload --port 8000
+
+  # 终端 2: 前端
+  cd "D:\God English\frontend"
+  npm run dev
